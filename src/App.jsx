@@ -163,6 +163,7 @@ function buildTargetGroups(targets, mode, groupMode, sortOrder) {
 }
 
 export default function App() {
+  const logoUrl = `${import.meta.env.BASE_URL}logo-square.png`;
   const [themeMode, setThemeMode] = useTheme();
   const [targetMode, setTargetMode] = useState(readStoredMode);
   const [viewPreferences, setViewPreferences] = useState(readStoredPreferences);
@@ -207,7 +208,7 @@ export default function App() {
 
       <header className="appHeader">
         <div className="brand">
-          <img className="brandLogo" src="/logo-square.png" alt="" aria-hidden="true" />
+          <img className="brandLogo" src={logoUrl} alt="" aria-hidden="true" />
           <span className="brandText">CSSBattle Targets</span>
         </div>
 
