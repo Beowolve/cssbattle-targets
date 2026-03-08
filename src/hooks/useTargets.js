@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { hasSupabaseConfig, supabase } from "../lib/supabase.js";
 
-const CACHE_KEY_PREFIX = "cssbattle-targets.cache.v1";
+const CACHE_KEY_PREFIX = "cssbattle-targets.cache.v2";
 const UPDATE_HOURS_UTC = [1, 18];
 
 function getCacheKey(mode) {
@@ -24,6 +24,17 @@ function getNextRefreshAt(fromTimestamp) {
   return fromTimestamp + 24 * 60 * 60 * 1000;
 }
 
+function isValidTargetEntry(target) {
+  return (
+    target &&
+    typeof target.challengeId === "string" &&
+    typeof target.name === "string" &&
+    typeof target.imageUrl === "string" &&
+    typeof target.label === "string" &&
+    typeof target.sortValue === "number"
+  );
+}
+
 function readCache(mode) {
   try {
     const rawValue = window.localStorage.getItem(getCacheKey(mode));
@@ -32,7 +43,7 @@ function readCache(mode) {
     }
 
     const parsed = JSON.parse(rawValue);
-    if (!Array.isArray(parsed.targets) || typeof parsed.fetchedAt !== "number" || typeof parsed.nextRefreshAt !== "number") {
+    if (!Array.isArray(parsed.targets) || parsed.targets.some((target) => !isValidTargetEntry(target)) || typeof parsed.fetchedAt !== "number" || typeof parsed.nextRefreshAt !== "number") {
       return null;
     }
 
@@ -87,6 +98,19 @@ function formatDailyLabel(dateString) {
   }).format(date);
 }
 
+function parseUtcDate(dateString) {
+  const timestamp = Date.parse(`${dateString}T00:00:00Z`);
+
+  if (!Number.isFinite(timestamp)) {
+    return { timestamp: 0, year: null };
+  }
+
+  return {
+    timestamp,
+    year: new Date(timestamp).getUTCFullYear()
+  };
+}
+
 async function fetchTargets(mode) {
   if (!supabase) {
     return [];
@@ -103,15 +127,25 @@ async function fetchTargets(mode) {
       throw new Error(`Could not load daily targets: ${error.message}`);
     }
 
-    return (data ?? []).map((row) => ({
-      challengeId: String(row.key),
-      name: row.name,
-      imageUrl: normalizeImageUrl(row.image_url),
-      label: formatDailyLabel(row.date)
-    }));
+    return (data ?? []).map((row) => {
+      const parsedDate = parseUtcDate(row.date);
+
+      return {
+        challengeId: String(row.key),
+        name: row.name,
+        imageUrl: normalizeImageUrl(row.image_url),
+        label: formatDailyLabel(row.date),
+        sortValue: parsedDate.timestamp,
+        groupYear: parsedDate.year,
+        battleNumber: null
+      };
+    });
   }
 
-  const { data, error } = await supabase.from("battle_targets").select("id, name, image_url").order("id", { ascending: true });
+  const { data, error } = await supabase
+    .from("battle_targets")
+    .select("id, name, image_url, battle_number")
+    .order("id", { ascending: true });
 
   if (error) {
     throw new Error(`Could not load battle targets: ${error.message}`);
@@ -121,7 +155,10 @@ async function fetchTargets(mode) {
     challengeId: String(row.id),
     name: row.name,
     imageUrl: normalizeImageUrl(row.image_url),
-    label: `#${row.id}`
+    label: `#${row.id}`,
+    sortValue: Number(row.id) || 0,
+    groupYear: null,
+    battleNumber: Number.isFinite(row.battle_number) ? row.battle_number : null
   }));
 }
 

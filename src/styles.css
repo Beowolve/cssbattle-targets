@@ -130,11 +130,17 @@ body {
 
 .toolbar {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.toolbarRow {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
 }
 
 .modeSwitch {
@@ -168,6 +174,36 @@ body {
   outline-offset: -3px;
 }
 
+.viewControls {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.controlField {
+  display: grid;
+  gap: 4px;
+  color: var(--secondary-color);
+  font-size: 0.85rem;
+}
+
+.controlField > select {
+  min-width: 122px;
+  height: 30px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--surface-color);
+  color: var(--font-color);
+  padding: 0 8px;
+  font: inherit;
+}
+
+.controlField > select:focus-visible {
+  outline: 3px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
 .targetsMeta {
   margin: 0;
   color: var(--muted-color);
@@ -185,6 +221,22 @@ body {
 .errorCard {
   border-color: var(--error-border);
   background: var(--error-bg);
+}
+
+.groupList {
+  display: grid;
+  gap: 1.4rem;
+}
+
+.groupSection {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: 1.02rem;
+  color: var(--heading-color);
 }
 
 .targetsGrid {
@@ -221,6 +273,24 @@ body {
 
   .content {
     padding: 10px 8px 18px;
+  }
+
+  .toolbarRow {
+    align-items: flex-start;
+  }
+
+  .viewControls {
+    width: 100%;
+  }
+
+  .controlField {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .controlField > select {
+    width: 100%;
+    min-width: 0;
   }
 
   .targetsMeta {
