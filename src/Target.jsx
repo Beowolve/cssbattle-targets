@@ -2,9 +2,8 @@ import PropTypes from "prop-types";
 
 const CSS_BATTLE_BASE_URL = "https://cssbattle.dev";
 
-export default function Target({ id, name, image }) {
-  const targetUrl = `${CSS_BATTLE_BASE_URL}/play/${id}`;
-  const imageUrl = `${CSS_BATTLE_BASE_URL}${image}`;
+export default function Target({ challengeId, name, imageUrl, label }) {
+  const targetUrl = `${CSS_BATTLE_BASE_URL}/play/${challengeId}`;
 
   return (
     <article className="target">
@@ -12,7 +11,7 @@ export default function Target({ id, name, image }) {
         <span className="targetName" title={name}>
           {name}
         </span>
-        <span className="targetNr">{id}</span>
+        <span className="targetMeta">{label}</span>
       </header>
 
       <a
@@ -20,7 +19,7 @@ export default function Target({ id, name, image }) {
         href={targetUrl}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`Open target ${id}: ${name}`}
+        aria-label={`Open target ${label}: ${name}`}
       >
         <img className="targetImg" src={imageUrl} alt={name} loading="lazy" decoding="async" />
       </a>
@@ -29,7 +28,8 @@ export default function Target({ id, name, image }) {
 }
 
 Target.propTypes = {
-  id: PropTypes.number.isRequired,
+  challengeId: PropTypes.string.isRequired,
   name: PropTypes.string.isRequired,
-  image: PropTypes.string.isRequired
+  imageUrl: PropTypes.string.isRequired,
+  label: PropTypes.string.isRequired
 };

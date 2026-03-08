@@ -1,4 +1,4 @@
-﻿.target {
+.target {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
@@ -20,13 +20,11 @@
   font-size: 1rem;
 }
 
-.targetNr {
+.targetMeta {
   color: var(--primary-color);
   font-variant-numeric: tabular-nums;
-}
-
-.targetNr::before {
-  content: "#";
+  white-space: nowrap;
+  font-size: 0.9rem;
 }
 
 .targetLink {
@@ -34,7 +32,7 @@
   position: relative;
   padding: 0;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 12px;
   overflow: hidden;
   display: block;
   background: var(--surface-color);

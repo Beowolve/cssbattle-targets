@@ -1,11 +1,12 @@
 # CSS Battle Targets
 
-A modern React + Vite app for browsing CSSBattle targets with a responsive card grid, branded header, and theme switch.
+A modern React + Vite app that loads CSSBattle battle and daily targets from Supabase, with a responsive grid, theme switch, and client-side cache.
 
 ## Tech Stack
 
 - React 18
 - Vite 5
+- Supabase JavaScript client
 - ESLint 9 (flat config)
 
 ## Requirements
@@ -13,14 +14,14 @@ A modern React + Vite app for browsing CSSBattle targets with a responsive card 
 - Node.js 20 or newer
 - npm 10 or newer
 
-## Quick Start (Windows / PowerShell)
+## Setup (Windows / PowerShell)
 
 ```powershell
+Copy-Item .env.example .env
+# then set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
 npm install
 npm run dev
 ```
-
-Vite prints a local URL (usually `http://localhost:5173`).
 
 ## Scripts
 
@@ -31,31 +32,14 @@ npm run preview  # preview the production build locally
 npm run lint     # run ESLint
 ```
 
-## Project Structure
+## Data Source and Caching
 
-```text
-.
-├─ public/
-│  └─ logo-square.png
-├─ src/
-│  ├─ hooks/
-│  │  └─ useTheme.js
-│  ├─ App.jsx
-│  ├─ Target.jsx
-│  ├─ Target.css
-│  ├─ levels.js
-│  ├─ main.jsx
-│  └─ styles.css
-├─ .gitignore
-├─ eslint.config.js
-├─ index.html
-├─ package.json
-└─ vite.config.js
-```
+- Source tables: `battle_targets`, `daily_targets`
+- Mode switch in UI: Battle / Daily
+- Cache strategy: localStorage per mode
+- Revalidation windows (UTC): `01:00` and `18:00`
 
-## Notes
+## Security Notes
 
-- `public/logo-square.png` is used in the header and as favicon.
-- Theme preference is saved in `localStorage`.
-- The target dataset is stored in `src/levels.js`.
-- Clicking a card opens the related CSSBattle challenge in a new tab.
+- Use only the Supabase anon key in frontend apps.
+- Never expose the Supabase service role key in this project.

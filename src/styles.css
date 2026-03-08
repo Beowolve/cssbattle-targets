@@ -8,6 +8,8 @@
   --heading-color: #273043;
   --muted-color: #6a7895;
   --focus-ring-color: rgba(47, 95, 184, 0.4);
+  --error-bg: #fff3f3;
+  --error-border: #f1b5b5;
 
   font-family: "Ropa Sans", "Segoe UI", sans-serif;
   line-height: 1.4;
@@ -24,6 +26,8 @@
   --heading-color: #e6edf8;
   --muted-color: #b3c0dc;
   --focus-ring-color: rgba(138, 180, 255, 0.45);
+  --error-bg: #3a2323;
+  --error-border: #8d3d3d;
 }
 
 * {
@@ -50,7 +54,7 @@ body {
 
 .topBand {
   height: 10px;
-  background: linear-gradient(90deg, #1A4341 0%, #F3AC3C 52%, #998235 100%);
+  background: linear-gradient(90deg, #1a4341 0%, #f3ac3c 52%, #998235 100%);
 }
 
 .appHeader {
@@ -124,10 +128,63 @@ body {
   flex: 1;
 }
 
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.modeSwitch {
+  display: inline-flex;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-color);
+}
+
+.modeButton {
+  border: 0;
+  background: transparent;
+  color: var(--muted-color);
+  padding: 0.5rem 0.85rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.modeButton + .modeButton {
+  border-left: 1px solid var(--border-color);
+}
+
+.modeButton.active {
+  color: var(--surface-color);
+  background: var(--primary-color);
+}
+
+.modeButton:focus-visible {
+  outline: 3px solid var(--focus-ring-color);
+  outline-offset: -3px;
+}
+
 .targetsMeta {
-  margin: 0 0 12px;
+  margin: 0;
   color: var(--muted-color);
   font-size: 0.95rem;
+}
+
+.statusCard {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--surface-color);
+  padding: 0.85rem 1rem;
+  margin-bottom: 12px;
+}
+
+.errorCard {
+  border-color: var(--error-border);
+  background: var(--error-bg);
 }
 
 .targetsGrid {
@@ -164,5 +221,9 @@ body {
 
   .content {
     padding: 10px 8px 18px;
+  }
+
+  .targetsMeta {
+    width: 100%;
   }
 }
