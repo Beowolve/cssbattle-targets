@@ -1,0 +1,62 @@
+﻿.target {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.targetHeader {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.targetName {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--heading-color);
+  font-size: 1rem;
+}
+
+.targetNr {
+  color: var(--primary-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.targetNr::before {
+  content: "#";
+}
+
+.targetLink {
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  display: block;
+  background: var(--surface-color);
+  box-shadow: 0 8px 18px rgba(16, 19, 25, 0.12);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.targetLink:hover {
+  transform: translateY(-3px);
+  border-color: var(--primary-color);
+  box-shadow: 0 14px 28px rgba(16, 19, 25, 0.2);
+}
+
+.targetLink:focus-visible {
+  outline: 3px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+.targetImg {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  margin: 0;
+  display: block;
+}

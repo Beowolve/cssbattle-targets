@@ -1,0 +1,168 @@
+:root {
+  --primary-color: #2f5fb8;
+  --secondary-color: #4f6287;
+  --font-color: #273043;
+  --bg-color: #f5f8ff;
+  --surface-color: #ffffff;
+  --border-color: #d7dfea;
+  --heading-color: #273043;
+  --muted-color: #6a7895;
+  --focus-ring-color: rgba(47, 95, 184, 0.4);
+
+  font-family: "Ropa Sans", "Segoe UI", sans-serif;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+[data-theme="dark"] {
+  --primary-color: #8ab4ff;
+  --secondary-color: #a7b5d6;
+  --font-color: #e6edf8;
+  --bg-color: #151a24;
+  --surface-color: #1e2532;
+  --border-color: #334159;
+  --heading-color: #e6edf8;
+  --muted-color: #b3c0dc;
+  --focus-ring-color: rgba(138, 180, 255, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-color);
+  color: var(--font-color);
+}
+
+.appRoot {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.topBand {
+  height: 10px;
+  background: linear-gradient(90deg, #1A4341 0%, #F3AC3C 52%, #998235 100%);
+}
+
+.appHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--surface-color);
+  flex-wrap: nowrap;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.brandLogo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  display: block;
+  object-fit: cover;
+  background: var(--bg-color);
+}
+
+.brandText {
+  color: var(--heading-color);
+  font-size: 1.08rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.themeSwitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--secondary-color);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.themeSwitch > select {
+  min-width: 95px;
+  height: 30px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  color: var(--font-color);
+  padding: 0 8px;
+  font: inherit;
+}
+
+.themeSwitch > select:focus-visible {
+  outline: 3px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+.content {
+  width: 100%;
+  margin: 0;
+  padding: 16px 14px 24px;
+  flex: 1;
+}
+
+.targetsMeta {
+  margin: 0 0 12px;
+  color: var(--muted-color);
+  font-size: 0.95rem;
+}
+
+.targetsGrid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+}
+
+@media (max-width: 640px) {
+  .appHeader {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .brandText {
+    font-size: 0.9rem;
+  }
+
+  .brandLogo {
+    width: 22px;
+    height: 22px;
+  }
+
+  .themeSwitch {
+    font-size: 0.8rem;
+    gap: 6px;
+  }
+
+  .themeSwitch > select {
+    min-width: 86px;
+    height: 28px;
+    padding: 0 6px;
+  }
+
+  .content {
+    padding: 10px 8px 18px;
+  }
+}
