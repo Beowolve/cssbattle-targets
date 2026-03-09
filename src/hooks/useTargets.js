@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { hasSupabaseConfig, supabase } from "../lib/supabase.js";
 
 const CACHE_KEY_PREFIX = "cssbattle-targets.cache.v2";
@@ -6,6 +6,23 @@ const UPDATE_HOURS_UTC = [1, 18];
 
 function getCacheKey(mode) {
   return `${CACHE_KEY_PREFIX}.${mode}`;
+}
+
+export function clearTargetsCache() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index);
+      if (typeof key === "string" && key.startsWith(`${CACHE_KEY_PREFIX}.`)) {
+        window.localStorage.removeItem(key);
+      }
+    }
+  } catch {
+    // Ignore availability and quota errors.
+  }
 }
 
 function getNextRefreshAt(fromTimestamp) {
@@ -172,6 +189,12 @@ export function useTargets(mode) {
     lastSyncAt: null,
     hasConfig: hasSupabaseConfig
   });
+  const [manualRefreshToken, setManualRefreshToken] = useState(0);
+  const lastHandledManualRefreshToken = useRef(0);
+
+  const refresh = useCallback(() => {
+    setManualRefreshToken((previousToken) => previousToken + 1);
+  }, []);
 
   useEffect(() => {
     if (!hasSupabaseConfig) {
@@ -187,6 +210,8 @@ export function useTargets(mode) {
 
     let isCancelled = false;
     const cached = readCache(mode);
+    const shouldForceRefresh = manualRefreshToken !== lastHandledManualRefreshToken.current;
+    lastHandledManualRefreshToken.current = manualRefreshToken;
 
     if (cached) {
       setState({
@@ -201,7 +226,7 @@ export function useTargets(mode) {
     }
 
     const cacheIsFresh = cached && Date.now() < cached.nextRefreshAt;
-    if (cacheIsFresh) {
+    if (cacheIsFresh && !shouldForceRefresh) {
       return undefined;
     }
 
@@ -249,7 +274,10 @@ export function useTargets(mode) {
     return () => {
       isCancelled = true;
     };
-  }, [mode]);
+  }, [manualRefreshToken, mode]);
 
-  return state;
+  return {
+    ...state,
+    refresh
+  };
 }

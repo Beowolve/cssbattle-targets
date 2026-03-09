@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Target from "./Target.jsx";
 import { THEME_OPTIONS, useTheme } from "./hooks/useTheme.js";
-import { useTargets } from "./hooks/useTargets.js";
+import { clearTargetsCache, useTargets } from "./hooks/useTargets.js";
 import "./Target.css";
 import "./styles.css";
 
@@ -167,7 +167,7 @@ export default function App() {
   const [themeMode, setThemeMode] = useTheme();
   const [targetMode, setTargetMode] = useState(readStoredMode);
   const [viewPreferences, setViewPreferences] = useState(readStoredPreferences);
-  const { targets, isLoading, isRefreshing, error, source, lastSyncAt, hasConfig } = useTargets(targetMode);
+  const { targets, isLoading, isRefreshing, error, source, lastSyncAt, hasConfig, refresh } = useTargets(targetMode);
 
   const activePreferences = viewPreferences[targetMode] ?? DEFAULT_VIEW_PREFERENCES[targetMode];
   const sortOrder = activePreferences.sort;
@@ -180,6 +180,28 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.prefs, JSON.stringify(viewPreferences));
   }, [viewPreferences]);
+
+  useEffect(() => {
+    const handleHardRefresh = (event) => {
+      const pressedKey = typeof event.key === "string" ? event.key.toLowerCase() : "";
+      const isCtrlOrMetaPressed = event.ctrlKey || event.metaKey;
+      const isHardRefreshShortcut = isCtrlOrMetaPressed && pressedKey === "f5";
+
+      if (!isHardRefreshShortcut) {
+        return;
+      }
+
+      event.preventDefault();
+      clearTargetsCache();
+      refresh();
+    };
+
+    window.addEventListener("keydown", handleHardRefresh);
+
+    return () => {
+      window.removeEventListener("keydown", handleHardRefresh);
+    };
+  }, [refresh]);
 
   const groupedTargets = useMemo(
     () => buildTargetGroups(targets, targetMode, groupMode, sortOrder),
@@ -246,26 +268,39 @@ export default function App() {
               </button>
             </div>
 
-            <div className="viewControls">
-              <label className="controlField" htmlFor="sortOrder">
-                Sort
-                <select id="sortOrder" value={sortOrder} onChange={(event) => updateActivePreferences({ sort: event.target.value })}>
-                  <option value={SORT_OPTIONS.newest}>Newest first</option>
-                  <option value={SORT_OPTIONS.oldest}>Oldest first</option>
-                </select>
-              </label>
+            <div className="toolbarRight">
+              <div className="toolbarActions">
+                <button
+                  type="button"
+                  className="refreshButton"
+                  onClick={refresh}
+                  disabled={!hasConfig || isRefreshing || (isLoading && targets.length === 0)}
+                >
+                  {isRefreshing ? "Refreshing..." : "Refresh data"}
+                </button>
+              </div>
 
-              <label className="controlField" htmlFor="groupMode">
-                Group
-                <select id="groupMode" value={groupMode} onChange={(event) => updateActivePreferences({ group: event.target.value })}>
-                  <option value={GROUP_OPTIONS.none}>None</option>
-                  {targetMode === TARGET_MODE_OPTIONS.battle ? (
-                    <option value={GROUP_OPTIONS.battle}>By battle</option>
-                  ) : (
-                    <option value={GROUP_OPTIONS.year}>By year</option>
-                  )}
-                </select>
-              </label>
+              <div className="viewControls">
+                <label className="controlField" htmlFor="sortOrder">
+                  Sort
+                  <select id="sortOrder" value={sortOrder} onChange={(event) => updateActivePreferences({ sort: event.target.value })}>
+                    <option value={SORT_OPTIONS.newest}>Newest first</option>
+                    <option value={SORT_OPTIONS.oldest}>Oldest first</option>
+                  </select>
+                </label>
+
+                <label className="controlField" htmlFor="groupMode">
+                  Group
+                  <select id="groupMode" value={groupMode} onChange={(event) => updateActivePreferences({ group: event.target.value })}>
+                    <option value={GROUP_OPTIONS.none}>None</option>
+                    {targetMode === TARGET_MODE_OPTIONS.battle ? (
+                      <option value={GROUP_OPTIONS.battle}>By battle</option>
+                    ) : (
+                      <option value={GROUP_OPTIONS.year}>By year</option>
+                    )}
+                  </select>
+                </label>
+              </div>
             </div>
           </div>
 
