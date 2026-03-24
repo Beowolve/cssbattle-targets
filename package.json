@@ -5,10 +5,11 @@
   "description": "Browse CSSBattle targets with a clean, responsive React UI.",
   "type": "module",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24 <25"
   },
   "scripts": {
     "dev": "vite",
+    "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --max-warnings=0"
