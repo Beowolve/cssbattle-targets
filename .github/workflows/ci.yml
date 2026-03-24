@@ -27,4 +27,8 @@ jobs:
         run: npm run lint
 
       - name: Build
+        env:
+          # Local development still uses .env; CI uses repository secrets.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build

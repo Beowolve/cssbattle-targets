@@ -58,6 +58,10 @@ npm run preview  # Preview production build locally
 
 - `CI` workflow runs lint and production build on pushes/PRs to `main`.
 - `Release` workflow runs on `v*.*.*` tags, generates release notes, publishes GitHub Releases, and deploys via FTP.
+- In GitHub Actions, Vite build values are injected via repository secrets:
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_ANON_KEY`
+- Local development continues to use `.env`.
 
 ## Reusable Release Actions
 
