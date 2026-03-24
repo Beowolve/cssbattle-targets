@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hasSupabaseConfig, supabase } from "../lib/supabase.js";
 
-const CACHE_KEY_PREFIX = "cssbattle-targets.cache.v2";
+const CACHE_KEY_PREFIX = "cssbattle-targets.cache.v4";
 const UPDATE_HOURS_UTC = [1, 18];
+const PAGE_SIZE = 120;
 
 function getCacheKey(mode) {
   return `${CACHE_KEY_PREFIX}.${mode}`;
+}
+
+function hasMoreTargets(loadedCount, totalCount, lastPageSize) {
+  if (typeof totalCount === "number") {
+    return loadedCount < totalCount;
+  }
+
+  return lastPageSize === PAGE_SIZE;
 }
 
 export function clearTargetsCache() {
@@ -52,6 +61,22 @@ function isValidTargetEntry(target) {
   );
 }
 
+function isTargetEntryMatchingMode(mode, target) {
+  if (!target || typeof target.label !== "string") {
+    return false;
+  }
+
+  if (mode === "battle") {
+    return target.label.startsWith("#");
+  }
+
+  if (mode === "daily") {
+    return !target.label.startsWith("#");
+  }
+
+  return true;
+}
+
 function readCache(mode) {
   try {
     const rawValue = window.localStorage.getItem(getCacheKey(mode));
@@ -60,7 +85,16 @@ function readCache(mode) {
     }
 
     const parsed = JSON.parse(rawValue);
-    if (!Array.isArray(parsed.targets) || parsed.targets.some((target) => !isValidTargetEntry(target)) || typeof parsed.fetchedAt !== "number" || typeof parsed.nextRefreshAt !== "number") {
+    const isValidTotalCount = parsed.totalCount === null || typeof parsed.totalCount === "number";
+
+    if (
+      !Array.isArray(parsed.targets) ||
+      parsed.targets.some((target) => !isValidTargetEntry(target)) ||
+      parsed.targets.some((target) => !isTargetEntryMatchingMode(mode, target)) ||
+      typeof parsed.fetchedAt !== "number" ||
+      typeof parsed.nextRefreshAt !== "number" ||
+      !isValidTotalCount
+    ) {
       return null;
     }
 
@@ -70,10 +104,11 @@ function readCache(mode) {
   }
 }
 
-function writeCache(mode, targets, fetchedAt) {
+function writeCache(mode, targets, totalCount, fetchedAt) {
   try {
     const payload = {
       targets,
+      totalCount: typeof totalCount === "number" ? totalCount : null,
       fetchedAt,
       nextRefreshAt: getNextRefreshAt(fetchedAt)
     };
@@ -128,23 +163,26 @@ function parseUtcDate(dateString) {
   };
 }
 
-async function fetchTargets(mode) {
-  if (!supabase) {
-    return [];
-  }
+function buildTargetQuery(mode, includeCount) {
+  const selectOptions = includeCount ? { count: "exact" } : undefined;
 
   if (mode === "daily") {
-    const { data, error } = await supabase
+    return supabase
       .from("daily_targets")
-      .select("key, name, image_url, date")
+      .select("key, name, image_url, date", selectOptions)
       .order("date", { ascending: false })
       .order("key", { ascending: true });
+  }
 
-    if (error) {
-      throw new Error(`Could not load daily targets: ${error.message}`);
-    }
+  return supabase
+    .from("battle_targets")
+    .select("id, name, image_url, battle_number", selectOptions)
+    .order("id", { ascending: false });
+}
 
-    return (data ?? []).map((row) => {
+function mapTargetRows(mode, rows) {
+  if (mode === "daily") {
+    return rows.map((row) => {
       const parsedDate = parseUtcDate(row.date);
 
       return {
@@ -159,16 +197,7 @@ async function fetchTargets(mode) {
     });
   }
 
-  const { data, error } = await supabase
-    .from("battle_targets")
-    .select("id, name, image_url, battle_number")
-    .order("id", { ascending: true });
-
-  if (error) {
-    throw new Error(`Could not load battle targets: ${error.message}`);
-  }
-
-  return (data ?? []).map((row) => ({
+  return rows.map((row) => ({
     challengeId: String(row.id),
     name: row.name,
     imageUrl: normalizeImageUrl(row.image_url),
@@ -179,11 +208,65 @@ async function fetchTargets(mode) {
   }));
 }
 
+async function fetchTargetPage(mode, fromIndex, pageSize, includeCount) {
+  if (!supabase) {
+    return { targets: [], totalCount: null };
+  }
+
+  const from = Math.max(0, fromIndex);
+  const to = from + pageSize - 1;
+  const { data, error, count } = await buildTargetQuery(mode, includeCount).range(from, to);
+
+  if (error) {
+    throw new Error(`Could not load ${mode} targets: ${error.message}`);
+  }
+
+  return {
+    targets: mapTargetRows(mode, data ?? []),
+    totalCount: typeof count === "number" ? count : null
+  };
+}
+
+function deduplicateTargets(targets) {
+  const seen = new Set();
+  const deduplicated = [];
+
+  for (const target of targets) {
+    if (seen.has(target.challengeId)) {
+      continue;
+    }
+
+    seen.add(target.challengeId);
+    deduplicated.push(target);
+  }
+
+  return deduplicated;
+}
+
+function getNewTargetIds(existingTargets, incomingTargets) {
+  const existingIds = new Set(existingTargets.map((target) => target.challengeId));
+  return incomingTargets.filter((target) => !existingIds.has(target.challengeId)).map((target) => target.challengeId);
+}
+
+function mergeRefreshedTargets(existingTargets, incomingTargets, totalCount) {
+  const mergedTargets = deduplicateTargets([...incomingTargets, ...existingTargets]);
+  if (typeof totalCount !== "number" || mergedTargets.length <= totalCount) {
+    return mergedTargets;
+  }
+
+  return mergedTargets.slice(0, totalCount);
+}
+
 export function useTargets(mode) {
   const [state, setState] = useState({
+    mode,
     targets: [],
+    totalCount: null,
+    hasMore: false,
+    newlyAddedIds: [],
     isLoading: true,
     isRefreshing: false,
+    isLoadingMore: false,
     error: null,
     source: "network",
     lastSyncAt: null,
@@ -191,17 +274,122 @@ export function useTargets(mode) {
   });
   const [manualRefreshToken, setManualRefreshToken] = useState(0);
   const lastHandledManualRefreshToken = useRef(0);
+  const activeRequestToken = useRef(0);
+  const isLoadMoreInFlight = useRef(false);
+  const latestStateRef = useRef(state);
+
+  useEffect(() => {
+    latestStateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    if (!Array.isArray(state.newlyAddedIds) || state.newlyAddedIds.length === 0) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setState((previousState) => {
+        if (!Array.isArray(previousState.newlyAddedIds) || previousState.newlyAddedIds.length === 0) {
+          return previousState;
+        }
+
+        return {
+          ...previousState,
+          newlyAddedIds: []
+        };
+      });
+    }, 1500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [state.newlyAddedIds]);
 
   const refresh = useCallback(() => {
     setManualRefreshToken((previousToken) => previousToken + 1);
   }, []);
 
+  const loadMore = useCallback(() => {
+    if (!hasSupabaseConfig || isLoadMoreInFlight.current) {
+      return;
+    }
+
+    const snapshot = latestStateRef.current;
+    if (!snapshot || snapshot.mode !== mode || !snapshot.hasMore || snapshot.isLoading || snapshot.isRefreshing || snapshot.isLoadingMore) {
+      return;
+    }
+
+    const requestToken = activeRequestToken.current;
+    const fromIndex = snapshot.targets.length;
+    isLoadMoreInFlight.current = true;
+
+    setState((previousState) => ({
+      ...previousState,
+      isLoadingMore: true,
+      error: null
+    }));
+
+    fetchTargetPage(mode, fromIndex, PAGE_SIZE, false)
+      .then((page) => {
+        if (activeRequestToken.current !== requestToken) {
+          return;
+        }
+
+        setState((previousState) => {
+          const previousTargets = previousState.mode === mode ? previousState.targets : [];
+          const mergedTargets = deduplicateTargets([...previousTargets, ...page.targets]);
+          const resolvedTotalCount =
+            typeof previousState.totalCount === "number"
+              ? previousState.totalCount
+              : typeof page.totalCount === "number"
+                ? page.totalCount
+                : null;
+          const hasMore = hasMoreTargets(mergedTargets.length, resolvedTotalCount, page.targets.length);
+          const updatedState = {
+            ...previousState,
+            mode,
+            targets: mergedTargets,
+            totalCount: resolvedTotalCount,
+            hasMore,
+            isLoadingMore: false,
+            error: null,
+            source: "network"
+          };
+          const cacheTimestamp = previousState.lastSyncAt ?? Date.now();
+          writeCache(mode, updatedState.targets, updatedState.totalCount, cacheTimestamp);
+          return updatedState;
+        });
+      })
+      .catch((error) => {
+        if (activeRequestToken.current !== requestToken) {
+          return;
+        }
+
+        setState((previousState) => ({
+          ...previousState,
+          isLoadingMore: false,
+          error: error instanceof Error ? error.message : `Could not load ${mode} targets.`
+        }));
+      })
+      .finally(() => {
+        if (activeRequestToken.current === requestToken) {
+          isLoadMoreInFlight.current = false;
+        }
+      });
+  }, [mode]);
+
   useEffect(() => {
     if (!hasSupabaseConfig) {
       setState((previousState) => ({
         ...previousState,
+        mode,
+        targets: [],
+        totalCount: null,
+        hasMore: false,
+        newlyAddedIds: [],
         isLoading: false,
         isRefreshing: false,
+        isLoadingMore: false,
         hasConfig: false,
         error: null
       }));
@@ -209,15 +397,24 @@ export function useTargets(mode) {
     }
 
     let isCancelled = false;
+    activeRequestToken.current += 1;
+    isLoadMoreInFlight.current = false;
+    const requestToken = activeRequestToken.current;
     const cached = readCache(mode);
     const shouldForceRefresh = manualRefreshToken !== lastHandledManualRefreshToken.current;
     lastHandledManualRefreshToken.current = manualRefreshToken;
 
     if (cached) {
+      const cachedTotalCount = typeof cached.totalCount === "number" ? cached.totalCount : null;
       setState({
+        mode,
         targets: cached.targets,
+        totalCount: cachedTotalCount,
+        hasMore: hasMoreTargets(cached.targets.length, cachedTotalCount, cached.targets.length),
+        newlyAddedIds: [],
         isLoading: false,
         isRefreshing: false,
+        isLoadingMore: false,
         error: null,
         source: "cache",
         lastSyncAt: cached.fetchedAt,
@@ -232,33 +429,53 @@ export function useTargets(mode) {
 
     setState((previousState) => ({
       ...previousState,
-      isLoading: previousState.targets.length === 0,
-      isRefreshing: previousState.targets.length > 0,
+      mode,
+      targets: previousState.mode === mode ? previousState.targets : [],
+      totalCount: previousState.mode === mode ? previousState.totalCount : null,
+      hasMore: previousState.mode === mode ? previousState.hasMore : false,
+      newlyAddedIds: [],
+      isLoading: previousState.mode === mode ? previousState.targets.length === 0 : true,
+      isRefreshing: previousState.mode === mode ? previousState.targets.length > 0 : false,
+      isLoadingMore: false,
       error: null,
       hasConfig: true
     }));
 
-    fetchTargets(mode)
-      .then((targets) => {
-        if (isCancelled) {
+    fetchTargetPage(mode, 0, PAGE_SIZE, true)
+      .then((page) => {
+        if (isCancelled || activeRequestToken.current !== requestToken) {
           return;
         }
 
         const fetchedAt = Date.now();
-        writeCache(mode, targets, fetchedAt);
+        const resolvedTotalCount = typeof page.totalCount === "number" ? page.totalCount : page.targets.length;
+        setState((previousState) => {
+          const previousTargets = previousState.mode === mode && Array.isArray(previousState.targets) ? previousState.targets : [];
+          const mergedTargets =
+            previousTargets.length > 0 ? mergeRefreshedTargets(previousTargets, page.targets, resolvedTotalCount) : page.targets;
+          const hasMore = hasMoreTargets(mergedTargets.length, resolvedTotalCount, page.targets.length);
+          const newlyAddedIds = previousTargets.length > 0 ? getNewTargetIds(previousTargets, page.targets) : [];
+          writeCache(mode, mergedTargets, resolvedTotalCount, fetchedAt);
 
-        setState({
-          targets,
-          isLoading: false,
-          isRefreshing: false,
-          error: null,
-          source: "network",
-          lastSyncAt: fetchedAt,
-          hasConfig: true
+          return {
+            ...previousState,
+            mode,
+            targets: mergedTargets,
+            totalCount: resolvedTotalCount,
+            hasMore,
+            newlyAddedIds,
+            isLoading: false,
+            isRefreshing: false,
+            isLoadingMore: false,
+            error: null,
+            source: "network",
+            lastSyncAt: fetchedAt,
+            hasConfig: true
+          };
         });
       })
       .catch((error) => {
-        if (isCancelled) {
+        if (isCancelled || activeRequestToken.current !== requestToken) {
           return;
         }
 
@@ -266,6 +483,7 @@ export function useTargets(mode) {
           ...previousState,
           isLoading: false,
           isRefreshing: false,
+          isLoadingMore: false,
           error: error instanceof Error ? error.message : `Could not load ${mode} targets.`,
           hasConfig: true
         }));
@@ -278,6 +496,7 @@ export function useTargets(mode) {
 
   return {
     ...state,
-    refresh
+    refresh,
+    loadMore
   };
 }

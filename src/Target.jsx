@@ -2,11 +2,12 @@ import PropTypes from "prop-types";
 
 const CSS_BATTLE_BASE_URL = "https://cssbattle.dev";
 
-export default function Target({ challengeId, name, imageUrl, label }) {
+export default function Target({ challengeId, name, imageUrl, label, isNew = false }) {
   const targetUrl = `${CSS_BATTLE_BASE_URL}/play/${challengeId}`;
+  const articleClassName = isNew ? "target targetNew" : "target";
 
   return (
-    <article className="target">
+    <article className={articleClassName}>
       <header className="targetHeader">
         <span className="targetName" title={name}>
           {name}
@@ -31,5 +32,6 @@ Target.propTypes = {
   challengeId: PropTypes.string.isRequired,
   name: PropTypes.string.isRequired,
   imageUrl: PropTypes.string.isRequired,
-  label: PropTypes.string.isRequired
+  label: PropTypes.string.isRequired,
+  isNew: PropTypes.bool
 };

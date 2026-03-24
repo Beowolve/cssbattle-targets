@@ -75,6 +75,12 @@ body {
   white-space: nowrap;
 }
 
+.brandMeta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
 .brandLogo {
   width: 28px;
   height: 28px;
@@ -93,6 +99,13 @@ body {
   letter-spacing: 0.04em;
   line-height: 1;
   white-space: nowrap;
+}
+
+.brandVersion {
+  color: var(--muted-color);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .themeSwitch {
@@ -283,6 +296,33 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
 }
 
+.loadMoreArea {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.loadMoreButton {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-color);
+  color: var(--font-color);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.loadMoreButton:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.loadMoreButton:focus-visible {
+  outline: 3px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
 @media (max-width: 640px) {
   .appHeader {
     padding: 8px 10px;
@@ -291,6 +331,14 @@ body {
 
   .brandText {
     font-size: 0.9rem;
+  }
+
+  .brandMeta {
+    gap: 6px;
+  }
+
+  .brandVersion {
+    font-size: 0.74rem;
   }
 
   .brandLogo {

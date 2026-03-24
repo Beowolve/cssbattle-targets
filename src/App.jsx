@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Target from "./Target.jsx";
 import { THEME_OPTIONS, useTheme } from "./hooks/useTheme.js";
 import { clearTargetsCache, useTargets } from "./hooks/useTargets.js";
@@ -167,11 +167,13 @@ export default function App() {
   const [themeMode, setThemeMode] = useTheme();
   const [targetMode, setTargetMode] = useState(readStoredMode);
   const [viewPreferences, setViewPreferences] = useState(readStoredPreferences);
-  const { targets, isLoading, isRefreshing, error, source, lastSyncAt, hasConfig, refresh } = useTargets(targetMode);
-
   const activePreferences = viewPreferences[targetMode] ?? DEFAULT_VIEW_PREFERENCES[targetMode];
   const sortOrder = activePreferences.sort;
   const groupMode = activePreferences.group;
+  const { targets, totalCount, hasMore, newlyAddedIds, isLoading, isRefreshing, isLoadingMore, error, source, lastSyncAt, hasConfig, refresh, loadMore } =
+    useTargets(targetMode);
+  const loadMoreSentinelRef = useRef(null);
+  const newlyAddedIdSet = useMemo(() => new Set(newlyAddedIds), [newlyAddedIds]);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.mode, targetMode);
@@ -209,6 +211,7 @@ export default function App() {
   );
 
   const sourceLabel = targetMode === TARGET_MODE_OPTIONS.battle ? "Battle Targets" : "Daily Targets";
+  const targetCountLabel = typeof totalCount === "number" ? `${targets.length} / ${totalCount}` : String(targets.length);
 
   const updateActivePreferences = (patch) => {
     setViewPreferences((previousPreferences) => {
@@ -224,6 +227,39 @@ export default function App() {
     });
   };
 
+  useEffect(() => {
+    if (!hasConfig || !hasMore) {
+      return undefined;
+    }
+
+    if (typeof IntersectionObserver === "undefined") {
+      return undefined;
+    }
+
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          loadMore();
+        }
+      },
+      {
+        root: null,
+        rootMargin: "600px 0px 600px 0px",
+        threshold: 0
+      }
+    );
+
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasConfig, hasMore, loadMore, targets.length]);
+
   return (
     <div className="appRoot">
       <div className="topBand" />
@@ -231,7 +267,12 @@ export default function App() {
       <header className="appHeader">
         <div className="brand">
           <img className="brandLogo" src={logoUrl} alt="" aria-hidden="true" />
-          <span className="brandText">CSSBattle Targets</span>
+          <span className="brandMeta">
+            <span className="brandText">CSSBattle Targets</span>
+            <span className="brandVersion" aria-label={`Version ${__APP_VERSION__}`}>
+              v{__APP_VERSION__}
+            </span>
+          </span>
         </div>
 
         <label className="themeSwitch" htmlFor="themeMode">
@@ -305,10 +346,11 @@ export default function App() {
           </div>
 
           <p className="targetsMeta">
-            {isLoading && targets.length === 0 ? "Loading targets..." : `${targets.length} ${sourceLabel}`}
+            {isLoading && targets.length === 0 ? "Loading targets..." : `${targetCountLabel} ${sourceLabel}`}
             {source === "cache" && !isRefreshing ? " • Cached" : ""}
             {lastSyncAt ? ` • Last sync ${formatLastSync(lastSyncAt)}` : ""}
             {isRefreshing ? " • Refreshing..." : ""}
+            {isLoadingMore ? " • Loading more..." : ""}
           </p>
         </section>
 
@@ -324,24 +366,36 @@ export default function App() {
         {!hasConfig || (isLoading && targets.length === 0) ? (
           <div className="statusCard">Loading target data...</div>
         ) : (
-          <div className="groupList">
-            {groupedTargets.map((group) => (
-              <section className="groupSection" key={group.key}>
-                {group.title ? <h2 className="groupTitle">{group.title}</h2> : null}
+          <div>
+            <div className="groupList">
+              {groupedTargets.map((group) => (
+                <section className="groupSection" key={group.key}>
+                  {group.title ? <h2 className="groupTitle">{group.title}</h2> : null}
 
-                <div className="targetsGrid" aria-label={group.title ? `${group.title} ${sourceLabel}` : `${sourceLabel} list`}>
-                  {group.items.map((target) => (
-                    <Target
-                      key={`${targetMode}-${target.challengeId}`}
-                      challengeId={target.challengeId}
-                      name={target.name}
-                      imageUrl={target.imageUrl}
-                      label={target.label}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
+                  <div className="targetsGrid" aria-label={group.title ? `${group.title} ${sourceLabel}` : `${sourceLabel} list`}>
+                    {group.items.map((target) => (
+                      <Target
+                        key={`${targetMode}-${target.challengeId}`}
+                        challengeId={target.challengeId}
+                        name={target.name}
+                        imageUrl={target.imageUrl}
+                        label={target.label}
+                        isNew={newlyAddedIdSet.has(target.challengeId)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            <div ref={loadMoreSentinelRef} className="loadMoreArea" aria-hidden="true" />
+            {hasMore ? (
+              <div className="loadMoreArea">
+                <button type="button" className="loadMoreButton" onClick={loadMore} disabled={isLoadingMore || isRefreshing}>
+                  {isLoadingMore ? "Loading..." : "Load more"}
+                </button>
+              </div>
+            ) : null}
           </div>
         )}
       </main>
